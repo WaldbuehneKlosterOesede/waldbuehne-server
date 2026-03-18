@@ -1,0 +1,9 @@
+{
+  "name": "waldbuehne-server",
+  "version": "1.0.0",
+  "description": "Waldbühne Kloster Oesede - Push & Status Server",
+  "dependencies": {
+    "web-push": "^3.6.7",
+    "node-json-db": "^2.3.0"
+  }
+}
