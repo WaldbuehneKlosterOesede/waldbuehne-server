@@ -9,11 +9,14 @@ module.exports = async (req, res) => {
   if (req.method !== 'GET') return res.status(405).end();
 
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/messages?select=*&order=ts.desc&limit=1`, {
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-    });
+    // since parameter: alle Nachrichten nach diesem Timestamp
+    const since = parseInt(req.query && req.query.since) || 0;
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/messages?ts=gt.${since}&order=ts.asc&select=*`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+    );
     const data = await r.json();
-    res.status(200).json(data && data.length > 0 ? data[0] : null);
+    res.status(200).json(Array.isArray(data) ? data : []);
   } catch(e) {
     res.status(500).json({ error: e.message });
   }

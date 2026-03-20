@@ -23,15 +23,17 @@ async function deleteSub(id) {
 }
 
 async function saveMessage(title, body) {
-  // Alte Nachricht löschen, neue speichern
-  await fetch(`${SUPABASE_URL}/rest/v1/messages`, {
-    method: 'DELETE',
-    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Prefer': 'return=minimal' }
-  });
+  // Nachricht anhängen (nicht ersetzen)
   await fetch(`${SUPABASE_URL}/rest/v1/messages`, {
     method: 'POST',
     headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
     body: JSON.stringify({ title, body, ts: Date.now() })
+  });
+  // Alte Nachrichten (älter als 7 Tage) aufräumen
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  await fetch(`${SUPABASE_URL}/rest/v1/messages?ts=lt.${weekAgo}`, {
+    method: 'DELETE',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
   });
 }
 
