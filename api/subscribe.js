@@ -1,23 +1,19 @@
-const JSONBIN_KEY = process.env.JSONBIN_MASTER_KEY;
-const SUBS_BIN_ID = process.env.SUBS_BIN_ID;
-const JSONBIN_BASE = 'https://api.jsonbin.io/v3/b';
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
-async function getSubs() {
-  const r = await fetch(`${JSONBIN_BASE}/${SUBS_BIN_ID}/latest`, {
-    headers: { 'X-Master-Key': JSONBIN_KEY }
+async function supabase(method, table, body) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': method === 'POST' ? 'return=minimal' : ''
+    },
+    body: body ? JSON.stringify(body) : undefined
   });
-  const data = await r.json();
-  const all = Array.isArray(data.record) ? data.record : [];
-  // Nur gültige Subscriptions (mit endpoint)
-  return all.filter(s => s && s.endpoint);
-}
-
-async function saveSubs(subs) {
-  await fetch(`${JSONBIN_BASE}/${SUBS_BIN_ID}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_KEY },
-    body: JSON.stringify(subs)
-  });
+  if (method === 'GET') return r.json();
+  return r;
 }
 
 module.exports = async (req, res) => {
@@ -28,17 +24,23 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).end();
 
   try {
-    const subscription = req.body;
-    if (!subscription || !subscription.endpoint) {
-      return res.status(400).json({ error: 'Invalid subscription' });
+    const sub = req.body;
+    if (!sub || !sub.endpoint) return res.status(400).json({ error: 'Invalid' });
+
+    // Prüfen ob bereits vorhanden
+    const existing = await fetch(
+      `${SUPABASE_URL}/rest/v1/subscriptions?endpoint=eq.${encodeURIComponent(sub.endpoint)}&select=id`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+    ).then(r => r.json());
+
+    if (!existing || existing.length === 0) {
+      await supabase('POST', 'subscriptions', {
+        endpoint: sub.endpoint,
+        p256dh: sub.keys?.p256dh || '',
+        auth: sub.keys?.auth || ''
+      });
     }
-    const subs = await getSubs();
-    const exists = subs.find(s => s.endpoint === subscription.endpoint);
-    if (!exists) {
-      subs.push(subscription);
-      await saveSubs(subs);
-    }
-    res.status(200).json({ success: true, total: subs.length });
+    res.status(200).json({ success: true });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }

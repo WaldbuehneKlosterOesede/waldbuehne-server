@@ -1,8 +1,6 @@
 const webpush = require('web-push');
-const JSONBIN_KEY = process.env.JSONBIN_MASTER_KEY;
-const SUBS_BIN_ID = process.env.SUBS_BIN_ID;
-const MSG_BIN_ID = process.env.MSG_BIN_ID;
-const JSONBIN_BASE = 'https://api.jsonbin.io/v3/b';
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
 webpush.setVapidDetails(
   'mailto:marketing@waldbuehne-kloster-oesede.com',
@@ -11,27 +9,28 @@ webpush.setVapidDetails(
 );
 
 async function getSubs() {
-  const r = await fetch(`${JSONBIN_BASE}/${SUBS_BIN_ID}/latest`, {
-    headers: { 'X-Master-Key': JSONBIN_KEY }
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?select=*`, {
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
   });
-  const data = await r.json();
-  const all = Array.isArray(data.record) ? data.record : [];
-  return all.filter(s => s && s.endpoint);
+  return r.json();
 }
 
-async function saveSubs(subs) {
-  await fetch(`${JSONBIN_BASE}/${SUBS_BIN_ID}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_KEY },
-    body: JSON.stringify(subs)
+async function deleteSub(id) {
+  await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?id=eq.${id}`, {
+    method: 'DELETE',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
   });
 }
 
-async function saveLastMessage(title, body) {
-  if (!MSG_BIN_ID) return;
-  await fetch(`${JSONBIN_BASE}/${MSG_BIN_ID}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_KEY },
+async function saveMessage(title, body) {
+  // Alte Nachricht löschen, neue speichern
+  await fetch(`${SUPABASE_URL}/rest/v1/messages`, {
+    method: 'DELETE',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Prefer': 'return=minimal' }
+  });
+  await fetch(`${SUPABASE_URL}/rest/v1/messages`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
     body: JSON.stringify({ title, body, ts: Date.now() })
   });
 }
@@ -48,19 +47,25 @@ module.exports = async (req, res) => {
   }
 
   const { title, body } = req.body;
+
+  // Nachricht speichern
+  await saveMessage(title, body);
+
+  const subs = await getSubs();
   const payload = JSON.stringify({ title, body, icon: '/icon.png' });
 
-  // Nachricht speichern damit App sie beim Öffnen anzeigen kann
-  await saveLastMessage(title, body);
-
-  let subs = await getSubs();
   const results = await Promise.allSettled(
-    subs.map(sub => webpush.sendNotification(sub, payload))
+    subs.map(sub => webpush.sendNotification(
+      { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+      payload
+    ))
   );
 
-  const validSubs = subs.filter((_, i) => results[i].status === 'fulfilled');
-  if (validSubs.length !== subs.length) await saveSubs(validSubs);
+  // Ungültige entfernen
+  for (let i = 0; i < results.length; i++) {
+    if (results[i].status === 'rejected') await deleteSub(subs[i].id);
+  }
 
   const sent = results.filter(r => r.status === 'fulfilled').length;
-  res.status(200).json({ sent, total: sent });
+  res.status(200).json({ sent, total: subs.length });
 };

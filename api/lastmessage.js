@@ -1,6 +1,5 @@
-const JSONBIN_KEY = process.env.JSONBIN_MASTER_KEY;
-const MSG_BIN_ID = process.env.MSG_BIN_ID;
-const JSONBIN_BASE = 'https://api.jsonbin.io/v3/b';
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -10,12 +9,11 @@ module.exports = async (req, res) => {
   if (req.method !== 'GET') return res.status(405).end();
 
   try {
-    if (!MSG_BIN_ID) return res.status(200).json(null);
-    const r = await fetch(`${JSONBIN_BASE}/${MSG_BIN_ID}/latest`, {
-      headers: { 'X-Master-Key': JSONBIN_KEY }
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/messages?select=*&order=ts.desc&limit=1`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     const data = await r.json();
-    res.status(200).json(data.record || null);
+    res.status(200).json(data && data.length > 0 ? data[0] : null);
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
