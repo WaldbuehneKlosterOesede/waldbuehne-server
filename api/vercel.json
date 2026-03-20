@@ -8,5 +8,6 @@
   "routes": [
     { "src": "/api/push", "dest": "/api/push.js" },
     { "src": "/api/subscribe", "dest": "/api/subscribe.js" }
+    { "src": "/api/lastmessage", "dest": "/api/lastmessage.js" }
   ]
 }
