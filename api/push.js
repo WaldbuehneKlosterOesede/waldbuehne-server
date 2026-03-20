@@ -14,7 +14,9 @@ async function getSubs() {
     headers: { 'X-Master-Key': JSONBIN_KEY }
   });
   const data = await r.json();
-  return Array.isArray(data.record) ? data.record : [];
+  const all = Array.isArray(data.record) ? data.record : [];
+  // Nur gültige Subscriptions mit endpoint
+  return all.filter(s => s && s.endpoint);
 }
 
 async function saveSubs(subs) {
@@ -49,5 +51,5 @@ module.exports = async (req, res) => {
   if (validSubs.length !== subs.length) await saveSubs(validSubs);
 
   const sent = results.filter(r => r.status === 'fulfilled').length;
-  res.status(200).json({ sent, total: subs.length });
+  res.status(200).json({ sent, total: sent });
 };

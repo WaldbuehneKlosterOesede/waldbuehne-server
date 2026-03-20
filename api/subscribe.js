@@ -7,7 +7,9 @@ async function getSubs() {
     headers: { 'X-Master-Key': JSONBIN_KEY }
   });
   const data = await r.json();
-  return Array.isArray(data.record) ? data.record : [];
+  const all = Array.isArray(data.record) ? data.record : [];
+  // Nur gültige Subscriptions (mit endpoint)
+  return all.filter(s => s && s.endpoint);
 }
 
 async function saveSubs(subs) {
