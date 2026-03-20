@@ -1,6 +1,7 @@
 const webpush = require('web-push');
 const JSONBIN_KEY = process.env.JSONBIN_MASTER_KEY;
 const SUBS_BIN_ID = process.env.SUBS_BIN_ID;
+const MSG_BIN_ID = process.env.MSG_BIN_ID;
 const JSONBIN_BASE = 'https://api.jsonbin.io/v3/b';
 
 webpush.setVapidDetails(
@@ -15,7 +16,6 @@ async function getSubs() {
   });
   const data = await r.json();
   const all = Array.isArray(data.record) ? data.record : [];
-  // Nur gültige Subscriptions mit endpoint
   return all.filter(s => s && s.endpoint);
 }
 
@@ -24,6 +24,15 @@ async function saveSubs(subs) {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_KEY },
     body: JSON.stringify(subs)
+  });
+}
+
+async function saveLastMessage(title, body) {
+  if (!MSG_BIN_ID) return;
+  await fetch(`${JSONBIN_BASE}/${MSG_BIN_ID}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_KEY },
+    body: JSON.stringify({ title, body, ts: Date.now() })
   });
 }
 
@@ -41,12 +50,14 @@ module.exports = async (req, res) => {
   const { title, body } = req.body;
   const payload = JSON.stringify({ title, body, icon: '/icon.png' });
 
+  // Nachricht speichern damit App sie beim Öffnen anzeigen kann
+  await saveLastMessage(title, body);
+
   let subs = await getSubs();
   const results = await Promise.allSettled(
     subs.map(sub => webpush.sendNotification(sub, payload))
   );
 
-  // Ungültige Subscriptions entfernen
   const validSubs = subs.filter((_, i) => results[i].status === 'fulfilled');
   if (validSubs.length !== subs.length) await saveSubs(validSubs);
 
