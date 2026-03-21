@@ -10,6 +10,7 @@
     { "src": "/api/unsubscribe", "dest": "/api/unsubscribe.js" },
     { "src": "/api/push", "dest": "/api/push.js" },
     { "src": "/api/lastmessage", "dest": "/api/lastmessage.js" },
-    { "src": "/api/appstate", "dest": "/api/appstate.js" }
+    { "src": "/api/appstate", "dest": "/api/appstate.js" },
+    { "src": "/api/appstate-minimal", "dest": "/api/appstate-minimal.js" }
   ]
 }
