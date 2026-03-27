@@ -8,25 +8,31 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   if (req.method === 'GET') {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/appstate?select=data&limit=1`, {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/appstate?select=data&id=eq.main&limit=1`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     const data = await r.json();
     res.status(200).json(data && data.length > 0 ? data[0].data : {});
+
   } else if (req.method === 'PUT') {
     if (req.headers['x-admin-key'] !== process.env.ADMIN_KEY) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-    // Upsert
-    await fetch(`${SUPABASE_URL}/rest/v1/appstate?id=eq.1`, {
-      method: 'DELETE',
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-    });
-    await fetch(`${SUPABASE_URL}/rest/v1/appstate`, {
+    // Echter Upsert via Supabase REST
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/appstate`, {
       method: 'POST',
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-      body: JSON.stringify({ id: 1, data: req.body })
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=minimal'
+      },
+      body: JSON.stringify({ id: 'main', data: req.body })
     });
+    if (!r.ok) {
+      const err = await r.text();
+      return res.status(500).json({ error: err });
+    }
     res.status(200).json({ success: true });
   }
 };
