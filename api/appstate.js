@@ -8,7 +8,7 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   if (req.method === 'GET') {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/appstate?select=data&id=eq.main&limit=1`, {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/appstate?select=data&id=eq.1&limit=1`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     const data = await r.json();
@@ -27,7 +27,7 @@ module.exports = async (req, res) => {
         'Content-Type': 'application/json',
         'Prefer': 'resolution=merge-duplicates,return=minimal'
       },
-      body: JSON.stringify({ id: 'main', data: req.body })
+      body: JSON.stringify({ id: 1, data: req.body })
     });
     if (!r.ok) {
       const err = await r.text();
